@@ -2,21 +2,41 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>제품 상세페이지 목록</title>
 
 <style>
 body{font-family:system-ui;margin:0;background:#f5f6f8}
-.wrap{max-width:900px;margin:40px auto;background:#fff;padding:30px;border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.08)}
+.wrap{max-width:960px;margin:40px auto;background:#fff;padding:30px;border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.08)}
 h1{margin:0}
 .top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
-.count{font-size:14px;color:#666}
+.count{font-size:14px;color:#666;text-align:right}
 .controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:10px 0 18px}
 input,select{padding:9px 12px;border-radius:10px;border:1px solid #ddd;background:#fff}
+.smallnote{font-size:12px;color:#666;line-height:1.5;margin-top:6px}
+
+/* 리스트 */
 .item{padding:14px 0;border-bottom:1px solid #eee}
-.item a{text-decoration:none;font-weight:600;color:#0a58ca}
+.row{display:grid;grid-template-columns: 1fr 260px;gap:14px;align-items:start}
+@media (max-width:720px){
+  .row{grid-template-columns: 1fr}
+}
+.item a{text-decoration:none;font-weight:650;color:#0a58ca}
 .item a:hover{text-decoration:underline}
 .meta{font-size:12px;color:#777;margin-top:6px}
 .badge{display:inline-block;font-size:12px;color:#111;background:#f2f3f5;border:1px solid #e5e7eb;padding:2px 8px;border-radius:999px;margin-right:8px}
+
+.specBox{
+  min-height:44px;
+  padding:10px 12px;
+  border:1px dashed #e5e7eb;
+  border-radius:12px;
+  background:#fafafa;
+  font-size:13px;
+  color:#333;
+}
+.specBox.empty{color:#9aa0a6}
+.specTitle{font-size:12px;color:#666;margin-bottom:6px}
 </style>
 </head>
 
@@ -25,13 +45,16 @@ input,select{padding:9px 12px;border-radius:10px;border:1px solid #ddd;backgroun
 
   <div class="top">
     <h1>제품 목록</h1>
-    <div class="count" id="count">불러오는 중...</div>
+    <div class="count">
+      <div id="count">불러오는 중...</div>
+      <div class="smallnote" id="sourceNote"></div>
+    </div>
   </div>
 
   <div class="controls">
-    <input type="text" id="search" placeholder="제품 검색 (파일명 기준)">
+    <input type="text" id="search" placeholder="검색 (코드/파일명/제품명/규격)">
     <select id="sort">
-      <option value="latest" selected>최신순(코드/SKU 내림차순)</option>
+      <option value="latest" selected>최신순(코드 내림차순)</option>
       <option value="az">이름순(A→Z)</option>
       <option value="za">이름순(Z→A)</option>
     </select>
@@ -39,66 +62,128 @@ input,select{padding:9px 12px;border-radius:10px;border:1px solid #ddd;backgroun
 
   <div id="list"></div>
 
+  <div class="smallnote">
+    • 표시 데이터는 <b>products.json</b>을 우선 사용합니다. (없으면 GitHub API로 대체)<br>
+    • 링크는 <b>코드번호.html</b>만 사용합니다. (한글 URL 미사용)
+  </div>
+
 </div>
 
 <script>
-/* 설정 */
-const BASE = "https://detail-pages.pages.dev/";
+/* ===== 설정 ===== */
+const BASE = "./";
+const PRODUCTS_JSON = "./products.json";
 const API  = "https://api.github.com/repos/rain7897-a11y/detail-pages/contents/";
 
-/* 파일명에서 선행 숫자(SKU/코드) 추출: 3436956_... -> 3436956 */
-function getLeadingNumber(filename){
-  const m = filename.match(/^(\d{3,})[_-]/); // 3자리 이상 숫자 + _ 또는 -
+/* ===== 유틸 ===== */
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, m => ({
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+  }[m]));
+}
+function getCodeFromCodeOnlyFile(filename){
+  const m = String(filename).match(/^(\d{3,})\.html$/i);
   return m ? parseInt(m[1], 10) : null;
 }
-
-function displayName(filename){
-  return filename.replace(".html","").replaceAll("_"," ");
+function displayName(item){
+  // 우선순위: name → title → file 기반
+  const n = (item.name || "").trim();
+  if(n) return n;
+  const t = (item.title || "").trim();
+  if(t) return t;
+  return String(item.file || "").replace(/\.html$/i,"").replaceAll("_"," ");
 }
 
-let allHtml = [];
+/* ===== 전역 ===== */
+let allItems = [];
 
-fetch(API)
-  .then(r=>r.json())
-  .then(files=>{
-    allHtml = files.filter(f => f.name && f.name.endsWith(".html"));
-    document.getElementById("count").innerText = "총 " + allHtml.length + "개";
-    applyAndRender();
-  })
-  .catch(err=>{
-    document.getElementById("count").innerText = "목록 불러오기 실패";
-    console.error(err);
-  });
+/* ===== 데이터 로드 ===== */
+async function loadFromProductsJson(){
+  const r = await fetch(PRODUCTS_JSON, { cache: "no-store" });
+  if(!r.ok) throw new Error("products.json not found");
+  const arr = await r.json();
+  const items = (Array.isArray(arr) ? arr : [])
+    .map(x => ({
+      code: x && x.code != null ? parseInt(x.code, 10) : null,
+      file: x && x.file ? String(x.file) : (x && x.code ? `${x.code}.html` : ""),
+      title: x && x.title ? String(x.title) : "",
+      name: x && x.name ? String(x.name) : "",
+      spec: x && x.spec ? String(x.spec) : ""
+    }))
+    .filter(x => x.code != null && /^\d{3,}\.html$/i.test(x.file));
+  items.sort((a,b)=> a.code - b.code);
+  return items;
+}
 
-document.getElementById("search").addEventListener("input", applyAndRender);
-document.getElementById("sort").addEventListener("change", applyAndRender);
+async function loadFromGithubApi(){
+  const r = await fetch(API, { cache: "no-store" });
+  if(!r.ok) throw new Error("GitHub API failed");
+  const files = await r.json();
 
+  const items = (Array.isArray(files) ? files : [])
+    .filter(f => f && f.name && String(f.name).toLowerCase().endsWith(".html"))
+    .filter(f => !["index.html","list.html"].includes(String(f.name).toLowerCase()))
+    .map(f => {
+      const name = String(f.name);
+      const codeOnly = getCodeFromCodeOnlyFile(name);
+      if(codeOnly === null) return null; // 코드전용 파일만 표시
+      return { code: codeOnly, file: name, title: "", name: "", spec: "" };
+    })
+    .filter(Boolean);
+
+  items.sort((a,b)=> a.code - b.code);
+  return items;
+}
+
+/* ===== 초기화 ===== */
+(async function init(){
+  try{
+    allItems = await loadFromProductsJson();
+    document.getElementById("sourceNote").innerHTML = "데이터: <b>products.json</b>";
+  }catch(e1){
+    try{
+      allItems = await loadFromGithubApi();
+      document.getElementById("sourceNote").innerHTML = "데이터: <b>GitHub API</b> (fallback) — products.json을 추가하면 제품명/규격 표시 가능";
+    }catch(e2){
+      document.getElementById("count").innerText = "목록 불러오기 실패";
+      document.getElementById("sourceNote").innerText = "";
+      console.error(e1, e2);
+      return;
+    }
+  }
+
+  document.getElementById("count").innerText = "총 " + allItems.length + "개";
+  applyAndRender();
+
+  document.getElementById("search").addEventListener("input", applyAndRender);
+  document.getElementById("sort").addEventListener("change", applyAndRender);
+})();
+
+/* ===== 3단계 포함: 검색/정렬/렌더 ===== */
 function applyAndRender(){
   const q = (document.getElementById("search").value || "").toLowerCase().trim();
   const sortMode = document.getElementById("sort").value;
 
-  let list = allHtml.slice();
+  let list = allItems.slice();
 
-  // 검색(파일명 기준)
+  // 검색: 코드 / 파일명 / 제품명(name) / 규격(spec) / title
   if(q){
-    list = list.filter(f => f.name.toLowerCase().includes(q));
+    list = list.filter(it=>{
+      return String(it.code || "").includes(q)
+        || String(it.file || "").toLowerCase().includes(q)
+        || String(it.name || "").toLowerCase().includes(q)
+        || String(it.spec || "").toLowerCase().includes(q)
+        || String(it.title || "").toLowerCase().includes(q);
+    });
   }
 
   // 정렬
   if(sortMode === "latest"){
-    // 1순위: 선행 숫자(SKU) 내림차순, 2순위: 파일명 내림차순
-    list.sort((a,b)=>{
-      const an = getLeadingNumber(a.name);
-      const bn = getLeadingNumber(b.name);
-      if(an !== null && bn !== null) return bn - an;
-      if(an !== null) return -1;
-      if(bn !== null) return 1;
-      return b.name.localeCompare(a.name, "ko");
-    });
-  } else if(sortMode === "az"){
-    list.sort((a,b)=> displayName(a.name).localeCompare(displayName(b.name), "ko"));
-  } else if(sortMode === "za"){
-    list.sort((a,b)=> displayName(b.name).localeCompare(displayName(a.name), "ko"));
+    list.sort((a,b)=> (b.code||0) - (a.code||0));
+  }else if(sortMode === "az"){
+    list.sort((a,b)=> displayName(a).localeCompare(displayName(b), "ko"));
+  }else if(sortMode === "za"){
+    list.sort((a,b)=> displayName(b).localeCompare(displayName(a), "ko"));
   }
 
   render(list);
@@ -108,26 +193,39 @@ function render(list){
   const box = document.getElementById("list");
   box.innerHTML = "";
 
-  list.forEach(f=>{
-    const sku = getLeadingNumber(f.name);
-    const name = displayName(f.name);
+  list.forEach(it=>{
+    const name = displayName(it);
+    const spec = (it.spec || "").trim();
+    const code = it.code;
+    const file = it.file;
 
     const div = document.createElement("div");
     div.className = "item";
+
+    const specHtml = spec
+      ? `<div class="specBox"><div class="specTitle">규격</div>${escapeHtml(spec)}</div>`
+      : `<div class="specBox empty"><div class="specTitle">규격</div>공란 (products_meta.csv에 입력하면 표시됩니다)</div>`;
+
     div.innerHTML = `
-      <a href="${BASE + encodeURIComponent(f.name)}" target="_blank" rel="noopener">
-        ${name}
-      </a>
-      <div class="meta">
-        ${sku !== null ? `<span class="badge">코드 ${sku}</span>` : ``}
-        <span>${f.name}</span>
+      <div class="row">
+        <div>
+          <a href="${BASE + file}" target="_blank" rel="noopener">${escapeHtml(name)}</a>
+          <div class="meta">
+            <span class="badge">코드 ${escapeHtml(code)}</span>
+            <span>${escapeHtml(file)}</span>
+          </div>
+        </div>
+        <div>
+          ${specHtml}
+        </div>
       </div>
     `;
+
     box.appendChild(div);
   });
 
-  // 검색 결과 수 표시
-  document.getElementById("count").innerText = "표시 " + list.length + "개 / 총 " + allHtml.length + "개";
+  document.getElementById("count").innerText =
+    "표시 " + list.length + "개 / 총 " + allItems.length + "개";
 }
 </script>
 

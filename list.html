@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>상품 목록</title>
+
+<style>
+body{
+  font-family:system-ui;
+  margin:40px;
+  background:#f6f7f9;
+}
+.wrap{
+  max-width:900px;
+  margin:auto;
+  background:#fff;
+  padding:30px;
+  border-radius:14px;
+  box-shadow:0 10px 30px rgba(0,0,0,.08);
+}
+h1{
+  margin-top:0;
+}
+.item{
+  padding:12px 0;
+  border-bottom:1px solid #eee;
+}
+a{
+  text-decoration:none;
+  color:#0a58ca;
+  font-weight:600;
+}
+a:hover{
+  text-decoration:underline;
+}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+<h1>제품 목록</h1>
+
+<div id="list"></div>
+
+</div>
+
+<script>
+
+/* ===============================
+   설정
+================================ */
+const BASE_URL = "https://detail-pages.pages.dev/";
+
+/* ===============================
+   파일명 목록 입력
+   ↓ 여기만 수정하면 됨
+================================ */
+
+const files = [
+
+"1000000010_27_낮은냄비.html",
+"1000000009_28_깊은냄비.html",
+"1000000011_29_다용도냄비.html",
+"1000000016_12_솥뚜껑불판.html",
+"1000000018_50_숯불화로구이.html"
+
+];
+
+
+/* ===============================
+   자동 생성 로직
+================================ */
+
+const list = document.getElementById("list");
+
+files.forEach(file=>{
+  const name = file
+  .replace(".html","")
+  .replaceAll("_"," ");
+
+  const div = document.createElement("div");
+  div.className="item";
+
+  div.innerHTML = `
+    <a href="${BASE_URL+file}" target="_blank">
+      ${name}
+    </a>
+  `;
+
+  list.appendChild(div);
+});
+
+</script>
+
+</body>
+</html>

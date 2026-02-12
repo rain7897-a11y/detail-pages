@@ -77,33 +77,54 @@ const API  = "https://api.github.com/repos/rain7897-a11y/detail-pages/contents/"
 
 /* ===== 유틸 ===== */
 function escapeHtml(s){
-  return String(s).replace(/[&<>"']/g, m => ({
-    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
-  }[m]));
+  return String(s).replace(/[&<>"']/g, function(m){
+    return ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" })[m];
+  });
 }
+
+// 3436976.html -> 3436976
 function getCodeFromCodeOnlyFile(filename){
-  const m = String(filename).match(/^(\d{3,})\.html$/i);
+  const m = String(filename || "").match(/^(\d{3,})\.html$/i);
   return m ? parseInt(m[1], 10) : null;
 }
-function displayName(filename){
-  let s = String(filename || "");
+
+// 3436976_무쇠_...html -> 3436976 (구형 파일명도 지원)
+function getLeadingNumber(filename){
+  const m = String(filename || "").match(/^(\d{3,})[_-]/);
+  return m ? parseInt(m[1], 10) : null;
+}
+
+// 이름 정리(앞 번호 제거, 뒤 '상세페이지' 제거)
+function cleanLabel(input){
+  let s = String(input || "");
 
   // 확장자 제거
   s = s.replace(/\.html$/i, "");
 
-  // 언더스코어 → 공백
-  s = s.replaceAll("_", " ");
+  // 언더스코어 → 공백 (replaceAll 대신 정규식)
+  s = s.replace(/_/g, " ");
 
-  // ✅ 맨 앞 번호 제거: (31) / 31 / 31번 / 31. / 31-) 등
+  // 맨 앞 번호 제거: (31) / 31 / 31번 / 31. / 31-) 등
   s = s.replace(/^\s*(\(\s*\d+\s*\)|\d+\s*(번|호)?[.)-]?)\s*/i, "");
 
-  // ✅ 맨 뒤 "상세페이지" 제거 (앞 공백 포함)
+  // 맨 뒤 "상세페이지" 제거
   s = s.replace(/\s*상세페이지\s*$/i, "");
 
   // 공백 정리
   s = s.replace(/\s+/g, " ").trim();
 
   return s;
+}
+
+// 표시용 이름 우선순위: name -> title -> file
+function displayNameFromItem(it){
+  const n = cleanLabel((it && it.name) || "");
+  if(n) return n;
+
+  const t = cleanLabel((it && it.title) || "");
+  if(t) return t;
+
+  return cleanLabel((it && it.file) || "");
 }
 
 /* ===== 전역 ===== */
@@ -114,15 +135,18 @@ async function loadFromProductsJson(){
   const r = await fetch(PRODUCTS_JSON, { cache: "no-store" });
   if(!r.ok) throw new Error("products.json not found");
   const arr = await r.json();
+
   const items = (Array.isArray(arr) ? arr : [])
     .map(x => ({
       code: x && x.code != null ? parseInt(x.code, 10) : null,
-      file: x && x.file ? String(x.file) : (x && x.code ? `${x.code}.html` : ""),
+      file: x && x.file ? String(x.file) : (x && x.code ? (String(x.code) + ".html") : ""),
       title: x && x.title ? String(x.title) : "",
       name: x && x.name ? String(x.name) : "",
       spec: x && x.spec ? String(x.spec) : ""
     }))
+    // 코드 + file 형식 최소 검증
     .filter(x => x.code != null && /^\d{3,}\.html$/i.test(x.file));
+
   items.sort((a,b)=> a.code - b.code);
   return items;
 }
@@ -136,42 +160,70 @@ async function loadFromGithubApi(){
     .filter(f => f && f.name && String(f.name).toLowerCase().endsWith(".html"))
     .filter(f => !["index.html","list.html"].includes(String(f.name).toLowerCase()))
     .map(f => {
-      const name = String(f.name);
-      const codeOnly = getCodeFromCodeOnlyFile(name);
-      if(codeOnly === null) return null; // 코드전용 파일만 표시
-      return { code: codeOnly, file: name, title: "", name: "", spec: "" };
+      const fname = String(f.name);
+
+      // 1) 코드전용: 3436976.html
+      const codeOnly = getCodeFromCodeOnlyFile(fname);
+      if(codeOnly !== null){
+        return { code: codeOnly, file: fname, title: "", name: "", spec: "" };
+      }
+
+      // 2) 구형: 3436976_무쇠_...html
+      const lead = getLeadingNumber(fname);
+      if(lead !== null){
+        // 링크는 코드전용으로 통일 (만약 코드전용 파일이 없다면 404 가능)
+        return { code: lead, file: lead + ".html", title: "", name: "", spec: "" };
+      }
+
+      return null;
     })
     .filter(Boolean);
 
-  items.sort((a,b)=> a.code - b.code);
-  return items;
+  // 중복 코드 제거(앞에 나온 것 우선)
+  const seen = {};
+  const uniq = [];
+  for(let i=0;i<items.length;i++){
+    const it = items[i];
+    if(seen[it.code]) continue;
+    seen[it.code] = true;
+    uniq.push(it);
+  }
+
+  uniq.sort((a,b)=> a.code - b.code);
+  return uniq;
 }
 
 /* ===== 초기화 ===== */
-(async function init(){
-  try{
-    allItems = await loadFromProductsJson();
-    document.getElementById("sourceNote").innerHTML = "데이터: <b>products.json</b>";
-  }catch(e1){
-    try{
-      allItems = await loadFromGithubApi();
-      document.getElementById("sourceNote").innerHTML = "데이터: <b>GitHub API</b> (fallback) — products.json을 추가하면 제품명/규격 표시 가능";
-    }catch(e2){
-      document.getElementById("count").innerText = "목록 불러오기 실패";
-      document.getElementById("sourceNote").innerText = "";
-      console.error(e1, e2);
-      return;
-    }
-  }
+(function init(){
+  const $count = document.getElementById("count");
+  const $note = document.getElementById("sourceNote");
 
-  document.getElementById("count").innerText = "총 " + allItems.length + "개";
-  applyAndRender();
-
+  // 이벤트 먼저 연결(로딩 실패해도 검색창 변경이 에러 안 나게)
   document.getElementById("search").addEventListener("input", applyAndRender);
   document.getElementById("sort").addEventListener("change", applyAndRender);
+
+  (async function(){
+    try{
+      allItems = await loadFromProductsJson();
+      $note.innerHTML = "데이터: <b>products.json</b>";
+    }catch(e1){
+      try{
+        allItems = await loadFromGithubApi();
+        $note.innerHTML = "데이터: <b>GitHub API</b> (fallback) — products.json을 추가하면 제품명/규격 표시 가능";
+      }catch(e2){
+        $count.innerText = "목록 불러오기 실패";
+        $note.innerText = "";
+        console.error(e1, e2);
+        return;
+      }
+    }
+
+    $count.innerText = "총 " + allItems.length + "개";
+    applyAndRender();
+  })();
 })();
 
-/* ===== 3단계 포함: 검색/정렬/렌더 ===== */
+/* ===== 검색/정렬/렌더 ===== */
 function applyAndRender(){
   const q = (document.getElementById("search").value || "").toLowerCase().trim();
   const sortMode = document.getElementById("sort").value;
@@ -192,10 +244,10 @@ function applyAndRender(){
   // 정렬
   if(sortMode === "latest"){
     list.sort((a,b)=> (b.code||0) - (a.code||0));
-  }else if(sortMode === "az"){
-    list.sort((a,b)=> displayName(a).localeCompare(displayName(b), "ko"));
-  }else if(sortMode === "za"){
-    list.sort((a,b)=> displayName(b).localeCompare(displayName(a), "ko"));
+  } else if(sortMode === "az"){
+    list.sort((a,b)=> displayNameFromItem(a).localeCompare(displayNameFromItem(b), "ko"));
+  } else if(sortMode === "za"){
+    list.sort((a,b)=> displayNameFromItem(b).localeCompare(displayNameFromItem(a), "ko"));
   }
 
   render(list);
@@ -205,8 +257,9 @@ function render(list){
   const box = document.getElementById("list");
   box.innerHTML = "";
 
-  list.forEach(it=>{
-    const name = displayName(it);
+  for(let i=0;i<list.length;i++){
+    const it = list[i];
+    const label = displayNameFromItem(it);
     const spec = (it.spec || "").trim();
     const code = it.code;
     const file = it.file;
@@ -215,26 +268,23 @@ function render(list){
     div.className = "item";
 
     const specHtml = spec
-      ? `<div class="specBox"><div class="specTitle">규격</div>${escapeHtml(spec)}</div>`
-      : `<div class="specBox empty"><div class="specTitle">규격</div>공란 (products_meta.csv에 입력하면 표시됩니다)</div>`;
+      ? '<div class="specBox"><div class="specTitle">규격</div>' + escapeHtml(spec) + '</div>'
+      : '<div class="specBox empty"><div class="specTitle">규격</div>공란 (products_meta.csv에 입력하면 표시됩니다)</div>';
 
-    div.innerHTML = `
-      <div class="row">
-        <div>
-          <a href="${BASE + file}" target="_blank" rel="noopener">${escapeHtml(name)}</a>
-          <div class="meta">
-            <span class="badge">코드 ${escapeHtml(code)}</span>
-            <span>${escapeHtml(file)}</span>
-          </div>
-        </div>
-        <div>
-          ${specHtml}
-        </div>
-      </div>
-    `;
+    div.innerHTML =
+      '<div class="row">' +
+        '<div>' +
+          '<a href="' + (BASE + file) + '" target="_blank" rel="noopener">' + escapeHtml(label) + '</a>' +
+          '<div class="meta">' +
+            '<span class="badge">코드 ' + escapeHtml(code) + '</span>' +
+            '<span>' + escapeHtml(file) + '</span>' +
+          '</div>' +
+        '</div>' +
+        '<div>' + specHtml + '</div>' +
+      '</div>';
 
     box.appendChild(div);
-  });
+  }
 
   document.getElementById("count").innerText =
     "표시 " + list.length + "개 / 총 " + allItems.length + "개";

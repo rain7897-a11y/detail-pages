@@ -2,43 +2,60 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<title>상품 목록</title>
+<title>제품 상세페이지 목록</title>
 
 <style>
 body{
   font-family:system-ui;
-  margin:40px;
-  background:#f6f7f9;
+  margin:0;
+  background:#f5f6f8;
 }
 .wrap{
   max-width:900px;
-  margin:auto;
+  margin:40px auto;
   background:#fff;
   padding:30px;
-  border-radius:14px;
+  border-radius:16px;
   box-shadow:0 10px 30px rgba(0,0,0,.08);
 }
-h1{
-  margin-top:0;
-}
+h1{margin-top:0}
 .item{
-  padding:12px 0;
+  padding:14px 0;
   border-bottom:1px solid #eee;
 }
-a{
+.item a{
   text-decoration:none;
-  color:#0a58ca;
   font-weight:600;
+  color:#0a58ca;
 }
-a:hover{
-  text-decoration:underline;
+.item a:hover{ text-decoration:underline }
+.top{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:20px;
+}
+.count{
+  font-size:14px;
+  color:#666;
+}
+input{
+  padding:8px 12px;
+  border-radius:8px;
+  border:1px solid #ddd;
 }
 </style>
 </head>
-<body>
 
+<body>
 <div class="wrap">
+
+<div class="top">
 <h1>제품 목록</h1>
+<div class="count" id="count">불러오는 중...</div>
+</div>
+
+<input type="text" id="search" placeholder="제품 검색">
 
 <div id="list"></div>
 
@@ -46,49 +63,66 @@ a:hover{
 
 <script>
 
-/* ===============================
-   설정
-================================ */
-const BASE_URL = "https://detail-pages.pages.dev/";
+/* =========================
+ 설정
+========================= */
 
-/* ===============================
-   파일명 목록 입력
-   ↓ 여기만 수정하면 됨
-================================ */
+const BASE = "https://detail-pages.pages.dev/";
+const API = "https://api.github.com/repos/rain7897-a11y/detail-pages/contents/";
 
-const files = [
+/* =========================
+ 목록 불러오기
+========================= */
 
-"1000000010_27_낮은냄비.html",
-"1000000009_28_깊은냄비.html",
-"1000000011_29_다용도냄비.html",
-"1000000016_12_솥뚜껑불판.html",
-"1000000018_50_숯불화로구이.html"
+fetch(API)
+.then(r=>r.json())
+.then(files=>{
 
-];
+  const htmlFiles = files.filter(f=>f.name.endsWith(".html"));
 
+  document.getElementById("count").innerText =
+  "총 "+htmlFiles.length+"개";
 
-/* ===============================
-   자동 생성 로직
-================================ */
+  render(htmlFiles);
 
-const list = document.getElementById("list");
+  /* 검색 기능 */
+  document.getElementById("search").oninput = e=>{
+    const v = e.target.value.toLowerCase();
+    render(htmlFiles.filter(f=>f.name.toLowerCase().includes(v)));
+  }
 
-files.forEach(file=>{
-  const name = file
-  .replace(".html","")
-  .replaceAll("_"," ");
-
-  const div = document.createElement("div");
-  div.className="item";
-
-  div.innerHTML = `
-    <a href="${BASE_URL+file}" target="_blank">
-      ${name}
-    </a>
-  `;
-
-  list.appendChild(div);
 });
+
+
+/* =========================
+ 목록 출력 함수
+========================= */
+
+function render(list){
+
+  const box = document.getElementById("list");
+  box.innerHTML="";
+
+  list.forEach(file=>{
+
+    const name = file.name
+    .replace(".html","")
+    .replaceAll("_"," ");
+
+    const div = document.createElement("div");
+    div.className="item";
+
+    div.innerHTML = `
+      <a href="${BASE+file.name}" target="_blank">
+      ${name}
+      </a>
+    `;
+
+    box.appendChild(div);
+
+  });
+
+}
 
 </script>
 

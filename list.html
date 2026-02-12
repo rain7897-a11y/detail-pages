@@ -85,13 +85,25 @@ function getCodeFromCodeOnlyFile(filename){
   const m = String(filename).match(/^(\d{3,})\.html$/i);
   return m ? parseInt(m[1], 10) : null;
 }
-function displayName(item){
-  // 우선순위: name → title → file 기반
-  const n = (item.name || "").trim();
-  if(n) return n;
-  const t = (item.title || "").trim();
-  if(t) return t;
-  return String(item.file || "").replace(/\.html$/i,"").replaceAll("_"," ");
+function displayName(filename){
+  let s = String(filename || "");
+
+  // 확장자 제거
+  s = s.replace(/\.html$/i, "");
+
+  // 언더스코어 → 공백
+  s = s.replaceAll("_", " ");
+
+  // ✅ 맨 앞 번호 제거: (31) / 31 / 31번 / 31. / 31-) 등
+  s = s.replace(/^\s*(\(\s*\d+\s*\)|\d+\s*(번|호)?[.)-]?)\s*/i, "");
+
+  // ✅ 맨 뒤 "상세페이지" 제거 (앞 공백 포함)
+  s = s.replace(/\s*상세페이지\s*$/i, "");
+
+  // 공백 정리
+  s = s.replace(/\s+/g, " ").trim();
+
+  return s;
 }
 
 /* ===== 전역 ===== */

@@ -94,20 +94,30 @@ function getLeadingNumber(filename){
   return m ? parseInt(m[1], 10) : null;
 }
 
-// 이름 정리(앞 번호 제거, 뒤 '상세페이지' 제거)
+/*
+  ✅ 리스트 표시용 제목 정리 규칙 (요청사항 반영)
+  - [브랜드] 제거 (대괄호만 제거, () 규격은 유지)
+  - 맨 뒤 '상세페이지' 제거
+  - 맨 앞 번호 제거(있으면)
+  - 그 외 텍스트는 유지
+*/
 function cleanLabel(input){
   let s = String(input || "");
 
   // 확장자 제거
   s = s.replace(/\.html$/i, "");
 
-  // 언더스코어 → 공백 (replaceAll 대신 정규식)
+  // 언더스코어 → 공백
   s = s.replace(/_/g, " ");
 
-  // 맨 앞 번호 제거: (31) / 31 / 31번 / 31. / 31-) 등
+  // ✅ [브랜드] 제거: [씨디씨], [CDC] 등
+  //    괄호() 규격은 건드리지 않음
+  s = s.replace(/\s*\[[^\]]+\]\s*/g, " ");
+
+  // ✅ 맨 앞 번호 제거: (31) / 31 / 31번 / 31. / 31-) 등
   s = s.replace(/^\s*(\(\s*\d+\s*\)|\d+\s*(번|호)?[.)-]?)\s*/i, "");
 
-  // 맨 뒤 "상세페이지" 제거
+  // ✅ 맨 뒤 "상세페이지" 제거 (단어만)
   s = s.replace(/\s*상세페이지\s*$/i, "");
 
   // 공백 정리
@@ -144,7 +154,6 @@ async function loadFromProductsJson(){
       name: x && x.name ? String(x.name) : "",
       spec: x && x.spec ? String(x.spec) : ""
     }))
-    // 코드 + file 형식 최소 검증
     .filter(x => x.code != null && /^\d{3,}\.html$/i.test(x.file));
 
   items.sort((a,b)=> a.code - b.code);
@@ -171,7 +180,7 @@ async function loadFromGithubApi(){
       // 2) 구형: 3436976_무쇠_...html
       const lead = getLeadingNumber(fname);
       if(lead !== null){
-        // 링크는 코드전용으로 통일 (만약 코드전용 파일이 없다면 404 가능)
+        // 링크는 코드전용으로 통일
         return { code: lead, file: lead + ".html", title: "", name: "", spec: "" };
       }
 
@@ -198,7 +207,6 @@ async function loadFromGithubApi(){
   const $count = document.getElementById("count");
   const $note = document.getElementById("sourceNote");
 
-  // 이벤트 먼저 연결(로딩 실패해도 검색창 변경이 에러 안 나게)
   document.getElementById("search").addEventListener("input", applyAndRender);
   document.getElementById("sort").addEventListener("change", applyAndRender);
 

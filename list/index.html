@@ -161,6 +161,25 @@ function esc(s){
 }
 function safeText(s){ return (s==null) ? "" : String(s); }
 
+// ✅ 썸네일 URL을 /list/에서도 안정적으로 보이게 변환
+function resolveThumbUrl(src){
+  src = String(src||"").trim();
+  if(!src) return "";
+  // data URI는 제외
+  if(/^data:/i.test(src)) return "";
+
+  // 1) 절대 URL(https://...)이면 그대로
+  if(/^https?:\/\//i.test(src)) return src;
+
+  // 2) 사이트 절대경로(/img/...)면 그대로
+  if(src.startsWith("/")) return src;
+
+  // 3) "./img/a.jpg" 같은 상대경로면 "./" 제거 후 루트 기준으로 올림
+  //    현재 페이지는 /list/ 이므로 "../"를 붙이면 루트 기준으로 맞춰짐
+  src = src.replace(/^\.\//, "");
+  return "../" + src;
+}
+
 // 표시용 제목 정리
 function cleanLabel(input){
   let s = String(input || "");
@@ -486,8 +505,9 @@ function render(list){
       a.target = "_blank";
       a.rel = "noopener";
 
-      const thumbHtml = thumb
-        ? `<div class="thumb"><img src="${esc(thumb)}" alt="${esc(label)}"></div>`
+      const thumbUrl = resolveThumbUrl(thumb);
+      const thumbHtml = thumbUrl
+        ? `<div class="thumb"><img src="${esc(thumbUrl)}" alt="${esc(label)}" loading="lazy"></div>`
         : `<div class="thumb">이미지 준비중</div>`;
 
       a.innerHTML = `

@@ -1,82 +1,164 @@
 <!doctype html>
 <html lang="ko">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>배관 부속 · 자동 생성 목록</title>
-  <link rel="stylesheet" href="./assets/css/frame.css" />
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>부강기업 | 상품</title>
+<style>
+  :root{
+    --max:1100px; --bg:#f5f6f8; --card:#fff; --txt:#111827; --muted:#6b7280;
+    --line:#e5e7eb; --accent:#111; --radius:16px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;background:var(--bg);color:var(--txt)}
+  a{text-decoration:none;color:inherit}
+  .wrap{max-width:var(--max); margin:0 auto; padding:28px 14px 70px;}
+  .top{
+    display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;
+    margin-bottom:16px;
+  }
+  .brand{font-weight:900; letter-spacing:-.3px}
+  .nav{display:flex; gap:8px; flex-wrap:wrap}
+  .pill{border:1px solid var(--line); background:#fff; padding:8px 10px; border-radius:999px; font-size:12px; color:var(--accent)}
+  .hero{
+    border:1px solid var(--line); background:var(--card); border-radius:var(--radius);
+    padding:18px; box-shadow:0 10px 30px rgba(0,0,0,.06);
+    display:grid; grid-template-columns: 1.2fr .8fr; gap:14px;
+  }
+  @media (max-width:860px){ .hero{grid-template-columns:1fr} }
+  .h1{font-size:22px; font-weight:900; margin:0 0 6px; letter-spacing:-.4px}
+  .p{margin:0; color:var(--muted); line-height:1.6}
+  .cta{display:flex; gap:10px; flex-wrap:wrap; margin-top:12px}
+  .btn{
+    display:inline-block; padding:10px 12px; border-radius:12px; font-weight:700; font-size:13px;
+    border:1px solid var(--line); background:#fff;
+  }
+  .btn.primary{background:var(--accent); color:#fff; border-color:var(--accent)}
+  .section{margin-top:18px}
+  .sec-title{display:flex; align-items:flex-end; justify-content:space-between; gap:10px; margin:18px 0 10px}
+  .sec-title h2{margin:0; font-size:16px; letter-spacing:-.2px}
+  .small{font-size:12px; color:var(--muted)}
+  .grid{display:grid; grid-template-columns:repeat(4,1fr); gap:10px}
+  @media (max-width:980px){ .grid{grid-template-columns:repeat(3,1fr)} }
+  @media (max-width:680px){ .grid{grid-template-columns:repeat(2,1fr)} }
+  @media (max-width:420px){ .grid{grid-template-columns:1fr} }
+
+  .tile{
+    border:1px solid var(--line); background:var(--card); border-radius:14px;
+    padding:12px; min-height:72px;
+  }
+  .tile b{display:block; font-size:13px}
+  .tile span{display:block; font-size:12px; color:var(--muted); margin-top:6px}
+  .prod{
+    border:1px solid var(--line); background:var(--card); border-radius:14px;
+    padding:12px;
+  }
+  .tag{display:inline-block; font-size:12px; padding:2px 8px; border-radius:999px; background:#eef2ff; border:1px solid #e0e7ff; color:#0f172a}
+  .name{margin:8px 0 0; font-weight:800; font-size:13px; line-height:1.35}
+  .meta{margin-top:6px; font-size:12px; color:var(--muted)}
+</style>
 </head>
 <body>
-  <div class="wrap">
-    <div class="frame">
-      <div class="hero">
-        <div class="kicker">배관 부속 · 업체별 제품</div>
-        <h1 class="title">자동 생성 목록 (10개)</h1>
-      </div>
-
-      <div style="padding:16px 18px;">
-        <div class="card" style="background:#fff;">
-          <h3>목록</h3>
-          <ul class="opt">
-            
-              <li>
-                <a href="./products/805-5893.html"><b>스텐용접티(KS)</b> (805-5893)</a>
-                <span style="color:var(--muted);"> · 태백금속 · 19,217원</span>
-              </li>
-            
-              <li>
-                <a href="./products/806-5173.html"><b>자바라호스</b> (806-5173)</a>
-                <span style="color:var(--muted);"> · 액세서리 · 28,820원</span>
-              </li>
-            
-              <li>
-                <a href="./products/806-5331.html"><b>자바라호스</b> (806-5331)</a>
-                <span style="color:var(--muted);"> · 액세서리 · 7,150원</span>
-              </li>
-            
-              <li>
-                <a href="./products/806-5340.html"><b>자바라호스</b> (806-5340)</a>
-                <span style="color:var(--muted);"> · 액세서리 · 8,910원</span>
-              </li>
-            
-              <li>
-                <a href="./products/806-5359.html"><b>자바라호스</b> (806-5359)</a>
-                <span style="color:var(--muted);"> · 액세서리 · 35,640원</span>
-              </li>
-            
-              <li>
-                <a href="./products/809-9541.html"><b>디퓨져</b> (809-9541)</a>
-                <span style="color:var(--muted);"> · 홍원테크 · 17,930원</span>
-              </li>
-            
-              <li>
-                <a href="./products/940-4458.html"><b>황동</b> (940-4458)</a>
-                <span style="color:var(--muted);"> · 헥스니플 · 72,688원</span>
-              </li>
-            
-              <li>
-                <a href="./products/940-4944.html"><b>황동</b> (940-4944)</a>
-                <span style="color:var(--muted);"> · 링엘보 · 18,810원</span>
-              </li>
-            
-              <li>
-                <a href="./products/940-5581.html"><b>철니플</b> (940-5581)</a>
-                <span style="color:var(--muted);"> · 엘보(PT+UNF) · 9,130원</span>
-              </li>
-            
-              <li>
-                <a href="./products/940-7233.html"><b>스텐나사</b> (940-7233)</a>
-                <span style="color:var(--muted);"> · 엘보45도 · 8,569원</span>
-              </li>
-            
-          </ul>
-        </div>
-      </div>
-
-      <div class="footer">
-        출처: <a href="https://bk3822.toolpark.kr/product/category.do?productSearchCategoryLNM=3780&amp;productSearchCategoryNM=1009&amp;productSearchCategorySNM=55241" target="_blank" rel="noreferrer">카테고리 페이지</a>
-      </div>
+<div class="wrap">
+  <div class="top">
+    <div class="brand">부강기업</div>
+    <div class="nav">
+      <a class="pill" href="./list/">전체상품</a>
+      <a class="pill" href="./list/#new">신규</a>
+      <a class="pill" href="./list/#hot">추천</a>
     </div>
   </div>
+
+  <div class="hero">
+    <div>
+      <p class="h1">자재·철물, 빠르게 찾고 정확히 고릅니다</p>
+      <p class="p">카테고리/검색/규격 중심으로 정리된 목록에서 필요한 품목을 빠르게 찾을 수 있게 구성합니다.</p>
+      <div class="cta">
+        <a class="btn primary" href="./list/">상품 보러가기</a>
+        <a class="btn" href="./list/?cat=__ALL__">카테고리 보기</a>
+      </div>
+    </div>
+    <div>
+      <div class="small">데이터 기반 자동 진열</div>
+      <div class="small">products.json 기준으로 카테고리/브랜드/규격 표시</div>
+      <div class="small" id="stat" style="margin-top:10px">불러오는 중…</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="sec-title">
+      <h2>카테고리</h2>
+      <div class="small">상위 카테고리 빠른 이동</div>
+    </div>
+    <div class="grid" id="cats"></div>
+  </div>
+
+  <div class="section">
+    <div class="sec-title">
+      <h2>신규 상품</h2>
+      <div class="small">코드 기준 최근</div>
+    </div>
+    <div class="grid" id="new"></div>
+  </div>
+</div>
+
+<script>
+const PRODUCTS_JSON = "../products.json"; // index.html이 루트면 "./products.json"로 바꾸세요
+
+function esc(s){return String(s||"").replace(/[&<>"']/g,m=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" })[m]);}
+
+async function load(){
+  // index.html이 레포 루트라면 아래 한 줄로 바꾸세요:
+  // const r = await fetch("./products.json", {cache:"no-store"});
+  const r = await fetch("./products.json", {cache:"no-store"});
+  const arr = await r.json();
+  const items = Array.isArray(arr) ? arr : (arr.products || []);
+  return items.map(x=>({
+    code: Number(x.code),
+    file: String(x.file || (x.code + ".html")),
+    name: String(x.name||x.title||x.file||""),
+    category: String(x.category||"기타"),
+    brand: String(x.brand||""),
+    spec: String(x.spec||"")
+  })).filter(x=>x.code && x.file);
+}
+
+function topCats(items){
+  const m = {};
+  for(const it of items){
+    m[it.category] = (m[it.category]||0)+1;
+  }
+  return Object.entries(m).sort((a,b)=>b[1]-a[1]).slice(0,8);
+}
+
+function renderCats(cats){
+  const box = document.getElementById("cats");
+  box.innerHTML = cats.map(([c,n])=>`
+    <a class="tile" href="./list/?cat=${encodeURIComponent(c)}">
+      <b>${esc(c)}</b>
+      <span>${n}개</span>
+    </a>
+  `).join("");
+}
+
+function renderNew(items){
+  const box = document.getElementById("new");
+  const sorted = items.slice().sort((a,b)=>b.code-a.code).slice(0,8);
+  box.innerHTML = sorted.map(it=>`
+    <a class="prod" href="./${esc(it.file)}" target="_blank" rel="noopener">
+      <span class="tag">${esc(it.category)}</span>
+      <div class="name">${esc(it.name)}</div>
+      <div class="meta">코드 ${esc(it.code)} · ${esc(it.file)}</div>
+    </a>
+  `).join("");
+}
+
+(async function(){
+  const items = await load();
+  document.getElementById("stat").textContent = `총 ${items.length}개 · 카테고리 ${new Set(items.map(x=>x.category)).size}개`;
+  renderCats(topCats(items));
+  renderNew(items);
+})();
+</script>
 </body>
 </html>

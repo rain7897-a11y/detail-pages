@@ -7,19 +7,56 @@
 
 <style>
 body{font-family:system-ui;margin:0;background:#f5f6f8}
-.wrap{max-width:900px;margin:40px auto;background:#fff;padding:30px;border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.08)}
+.wrap{max-width:980px;margin:40px auto;background:#fff;padding:30px;border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.08)}
 h1{margin:0}
-.top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
-.count{font-size:14px;color:#666}
-.controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:10px 0 18px}
+.top{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.count{font-size:14px;color:#666;text-align:right}
+.controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:10px 0 10px}
 input,select{padding:9px 12px;border-radius:10px;border:1px solid #ddd;background:#fff}
+.smallnote{font-size:12px;color:#666;line-height:1.5;margin-top:6px}
+
+/* 카테고리 UI */
+.catbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:0 0 18px}
+.chips{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.chip{
+  border:1px solid #e5e7eb;background:#f8fafc;color:#111;
+  padding:7px 10px;border-radius:999px;font-size:12px;
+  cursor:pointer; user-select:none;
+}
+.chip.active{background:#111;color:#fff;border-color:#111}
+.chip .n{opacity:.85;margin-left:6px}
+
+/* 리스트 */
 .item{padding:14px 0;border-bottom:1px solid #eee}
-.item a{text-decoration:none;font-weight:600;color:#0a58ca}
+.row{display:grid;grid-template-columns: 1fr 280px;gap:14px;align-items:start}
+@media (max-width:760px){ .row{grid-template-columns: 1fr} }
+.item a{text-decoration:none;font-weight:650;color:#0a58ca}
 .item a:hover{text-decoration:underline}
-.meta{font-size:12px;color:#777;margin-top:6px}
-.badge{display:inline-block;font-size:12px;color:#111;background:#f2f3f5;border:1px solid #e5e7eb;padding:2px 8px;border-radius:999px;margin-right:8px}
-.smallnote{font-size:12px;color:#666;line-height:1.5;margin:6px 0 0}
-hr.sep{border:0;border-top:1px solid #eee;margin:14px 0}
+.meta{font-size:12px;color:#777;margin-top:6px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.badge{display:inline-block;font-size:12px;color:#111;background:#f2f3f5;border:1px solid #e5e7eb;padding:2px 8px;border-radius:999px}
+
+.specBox{
+  min-height:44px;
+  padding:10px 12px;
+  border:1px dashed #e5e7eb;
+  border-radius:12px;
+  background:#fafafa;
+  font-size:13px;
+  color:#333;
+}
+.specBox.empty{color:#9aa0a6}
+.specTitle{font-size:12px;color:#666;margin-bottom:6px}
+
+/* 작은 표시 */
+.catTag{
+  display:inline-block;
+  font-size:12px;
+  color:#0f172a;
+  background:#eef2ff;
+  border:1px solid #e0e7ff;
+  padding:2px 8px;
+  border-radius:999px;
+}
 </style>
 </head>
 
@@ -28,98 +65,143 @@ hr.sep{border:0;border-top:1px solid #eee;margin:14px 0}
 
   <div class="top">
     <h1>제품 목록</h1>
-    <div>
-      <div class="count" id="count">불러오는 중...</div>
+    <div class="count">
+      <div id="count">불러오는 중...</div>
       <div class="smallnote" id="sourceNote"></div>
     </div>
   </div>
 
   <div class="controls">
-    <input type="text" id="search" placeholder="제품 검색 (코드/파일명/제목)">
+    <input type="text" id="search" placeholder="검색 (코드/파일명/제품명/규격)" />
     <select id="sort">
       <option value="latest" selected>최신순(코드 내림차순)</option>
       <option value="az">이름순(A→Z)</option>
       <option value="za">이름순(Z→A)</option>
     </select>
+    <select id="category">
+      <option value="__ALL__" selected>카테고리: 전체</option>
+    </select>
+  </div>
+
+  <div class="catbar">
+    <div class="chips" id="chips"></div>
   </div>
 
   <div id="list"></div>
 
-  <hr class="sep">
   <div class="smallnote">
-    • URL은 <b>코드번호.html</b> 형식으로 연결됩니다. (한글 URL 미사용)<br>
-    • 목록 데이터 우선순위: <b>products.json</b> → (없으면) GitHub API
+    • 표시 데이터는 <b>products.json</b>을 우선 사용합니다. (없으면 GitHub API로 대체)<br>
+    • 링크는 <b>코드번호.html</b>만 사용합니다. (한글 URL 미사용)<br>
+    • 카테고리는 <b>products.json의 category</b>를 우선 사용하고, 없으면 이름/제목 키워드로 자동 추정합니다.
   </div>
 
 </div>
 
 <script>
-/* =========================
-   설정
-========================= */
-// 정적 사이트 기준: 같은 디렉터리에 list.html, products.json, 3436976.html ... 이 있다고 가정
+/* ===== 설정 ===== */
 const BASE = "./";
-
-// fallback: GitHub contents API (루트 목록)
+const PRODUCTS_JSON = "./products.json";
 const API  = "https://api.github.com/repos/rain7897-a11y/detail-pages/contents/";
 
-// 우선 사용: 로컬 products.json
-const PRODUCTS_JSON = "./products.json";
-
-/* =========================
-   유틸
-========================= */
-
-// 파일명에서 숫자만 추출: 3436976.html -> 3436976
-function getCodeFromCodeOnlyFile(filename){
-  const m = String(filename).match(/^(\d{3,})\.html$/i);
-  return m ? parseInt(m[1], 10) : null;
-}
-
-// (구) 파일명에서 선행 숫자 추출: 3436956_... -> 3436956
-function getLeadingNumber(filename){
-  const m = String(filename).match(/^(\d{3,})[_-]/);
-  return m ? parseInt(m[1], 10) : null;
-}
-
-// 표시용 이름: products.json의 title이 있으면 title, 없으면 파일명 정리본
-function displayNameFromItem(item){
-  if(item && item.title){
-    const t = String(item.title).trim();
-    if(t) return t;
-  }
-  // 파일명 기반 기본 표시
-  const f = item && item.file ? String(item.file) : "";
-  return f.replace(/\.html$/i,"").replaceAll("_"," ");
-}
-
+/* ===== 유틸 ===== */
 function escapeHtml(s){
-  return String(s).replace(/[&<>"']/g, m => ({
-    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
-  }[m]));
+  return String(s).replace(/[&<>"']/g, function(m){
+    return ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" })[m];
+  });
+}
+function safeText(s){ return (s == null) ? "" : String(s); }
+
+// 3436976.html -> 3436976
+function getCodeFromCodeOnlyFile(filename){
+  const m = String(filename || "").match(/^(\d{3,})\.html$/i);
+  return m ? parseInt(m[1], 10) : null;
+}
+// 3436976_무쇠_...html -> 3436976 (구형 파일명도 지원)
+function getLeadingNumber(filename){
+  const m = String(filename || "").match(/^(\d{3,})[_-]/);
+  return m ? parseInt(m[1], 10) : null;
 }
 
-/* =========================
-   데이터 모델
-   item = { code: number, file: "3436976.html", title?: "..." }
-========================= */
+/*
+  ✅ 리스트 표시용 제목 정리 규칙
+  - [브랜드] 제거
+  - 맨 뒤 '상세페이지' 제거
+  - 맨 앞 번호 제거(있으면)
+  - 그 외 텍스트는 유지
+*/
+function cleanLabel(input){
+  let s = String(input || "");
+  s = s.replace(/\.html$/i, "");
+  s = s.replace(/_/g, " ");
+  s = s.replace(/\s*\[[^\]]+\]\s*/g, " ");
+  s = s.replace(/^\s*(\(\s*\d+\s*\)|\d+\s*(번|호)?[.)-]?)\s*/i, "");
+  s = s.replace(/\s*상세페이지\s*$/i, "");
+  s = s.replace(/\s+/g, " ").trim();
+  return s;
+}
+function displayNameFromItem(it){
+  const n = cleanLabel((it && it.name) || "");
+  if(n) return n;
+  const t = cleanLabel((it && it.title) || "");
+  if(t) return t;
+  return cleanLabel((it && it.file) || "");
+}
 
-let allItems = []; // 표준화된 목록
+/* ===== 카테고리 추정 =====
+   - products.json에 category가 있으면 그대로 사용
+   - 없으면 name/title/spec/file에서 키워드로 추정
+   필요하면 rules만 늘려주시면 됩니다.
+*/
+function inferCategory(it){
+  // 1) 명시 category 우선
+  const explicit = safeText(it && it.category).trim();
+  if(explicit) return explicit;
 
+  const name = safeText(it && it.name);
+  const title = safeText(it && it.title);
+  const spec = safeText(it && it.spec);
+  const file = safeText(it && it.file);
+
+  const text = (name + " " + title + " " + spec + " " + file).toLowerCase();
+
+  const rules = [
+    ["가마솥/솥", ["가마솥","곰탕","전솥","탕솥","솥뚜껑","솥"]],
+    ["팬/그리들", ["그리들","griddle","전골팬","부대전골","전골","팬","프라이팬"]],
+    ["뚝배기/미니", ["뚝배기","미니","미니솥","mini"]],
+    ["무쇠/주철", ["무쇠","주철","cast","iron"]],
+  ];
+
+  for(const [cat, kws] of rules){
+    for(const kw of kws){
+      if(text.includes(kw)) return cat;
+    }
+  }
+  return "기타";
+}
+
+/* ===== 전역 ===== */
+let allItems = [];
+let categoryStats = {}; // {cat: count}
+let currentCategory = "__ALL__";
+
+/* ===== 데이터 로드 ===== */
 async function loadFromProductsJson(){
   const r = await fetch(PRODUCTS_JSON, { cache: "no-store" });
   if(!r.ok) throw new Error("products.json not found");
   const arr = await r.json();
 
-  // 표준화 + 검증
   const items = (Array.isArray(arr) ? arr : [])
     .map(x => ({
-      code: x && x.code ? parseInt(x.code, 10) : getCodeFromCodeOnlyFile(x && x.file),
-      file: x && x.file ? String(x.file) : (x && x.code ? `${x.code}.html` : ""),
-      title: x && x.title ? String(x.title) : ""
+      code: x && x.code != null ? parseInt(x.code, 10) : null,
+      file: x && x.file ? String(x.file) : (x && x.code ? (String(x.code) + ".html") : ""),
+      title: x && x.title ? String(x.title) : "",
+      name: x && x.name ? String(x.name) : "",
+      spec: x && x.spec ? String(x.spec) : "",
+      category: x && x.category ? String(x.category) : "" // ✅ category 지원
     }))
-    .filter(x => x.code !== null && x.code !== undefined && x.file && /^\d{3,}\.html$/i.test(x.file));
+    .filter(x => x.code != null && /^\d{3,}\.html$/i.test(x.file));
 
+  items.sort((a,b)=> a.code - b.code);
   return items;
 }
 
@@ -128,91 +210,169 @@ async function loadFromGithubApi(){
   if(!r.ok) throw new Error("GitHub API failed");
   const files = await r.json();
 
-  // 루트의 *.html 중 코드전용 파일만 포함 (index/list 제외)
   const items = (Array.isArray(files) ? files : [])
     .filter(f => f && f.name && String(f.name).toLowerCase().endsWith(".html"))
     .filter(f => !["index.html","list.html"].includes(String(f.name).toLowerCase()))
     .map(f => {
-      const name = String(f.name);
-      const codeOnly = getCodeFromCodeOnlyFile(name);
+      const fname = String(f.name);
+
+      // 1) 코드전용: 3436976.html
+      const codeOnly = getCodeFromCodeOnlyFile(fname);
       if(codeOnly !== null){
-        return { code: codeOnly, file: name, title: "" };
+        return { code: codeOnly, file: fname, title: "", name: "", spec: "", category: "" };
       }
-      // 혹시 아직 옛 파일명이 남아있다면(3436_xxx.html), 코드만으로 링크를 만들기 위해 변환
-      const lead = getLeadingNumber(name);
+
+      // 2) 구형: 3436976_무쇠_...html
+      const lead = getLeadingNumber(fname);
       if(lead !== null){
-        return { code: lead, file: `${lead}.html`, title: "" };
+        return { code: lead, file: lead + ".html", title: "", name: "", spec: "", category: "" };
       }
       return null;
     })
     .filter(Boolean);
 
-  // 중복 코드 제거(첫 등장 우선)
-  const seen = new Set();
+  // 중복 코드 제거
+  const seen = {};
   const uniq = [];
   for(const it of items){
-    if(seen.has(it.code)) continue;
-    seen.add(it.code);
+    if(seen[it.code]) continue;
+    seen[it.code] = true;
     uniq.push(it);
   }
+
+  uniq.sort((a,b)=> a.code - b.code);
   return uniq;
 }
 
-/* =========================
-   초기 로드
-========================= */
+/* ===== 카테고리 UI ===== */
+function buildCategoryStats(){
+  const stats = {};
+  for(const it of allItems){
+    const cat = inferCategory(it);
+    it._cat = cat; // 캐시
+    stats[cat] = (stats[cat] || 0) + 1;
+  }
+  categoryStats = stats;
+}
 
-(async function init(){
-  try{
-    const items = await loadFromProductsJson();
-    allItems = items;
-    document.getElementById("sourceNote").innerHTML =
-      "데이터: <b>products.json</b> (권장 방식)";
-  }catch(e1){
-    try{
-      const items = await loadFromGithubApi();
-      allItems = items;
-      document.getElementById("sourceNote").innerHTML =
-        "데이터: <b>GitHub API</b> (fallback) — products.json을 추가하면 더 안정적입니다.";
-    }catch(e2){
-      document.getElementById("count").innerText = "목록 불러오기 실패";
-      document.getElementById("sourceNote").innerText = "";
-      console.error(e1, e2);
-      return;
-    }
+function fillCategorySelect(){
+  const sel = document.getElementById("category");
+  // 기존 옵션 초기화(첫 옵션 유지)
+  sel.innerHTML = '<option value="__ALL__">카테고리: 전체</option>';
+
+  const cats = Object.keys(categoryStats).sort((a,b)=>{
+    // 개수 많은 순, 이름순
+    const da = categoryStats[a] || 0;
+    const db = categoryStats[b] || 0;
+    if(db !== da) return db - da;
+    return a.localeCompare(b, "ko");
+  });
+
+  for(const c of cats){
+    const opt = document.createElement("option");
+    opt.value = c;
+    opt.textContent = `${c} (${categoryStats[c]})`;
+    sel.appendChild(opt);
+  }
+}
+
+function fillChips(){
+  const chips = document.getElementById("chips");
+  chips.innerHTML = "";
+
+  function makeChip(label, value, count){
+    const el = document.createElement("div");
+    el.className = "chip" + (currentCategory === value ? " active" : "");
+    el.innerHTML = escapeHtml(label) + `<span class="n">${count}</span>`;
+    el.addEventListener("click", ()=>{
+      currentCategory = value;
+      document.getElementById("category").value = value;
+      applyAndRender();
+      fillChips(); // active 갱신
+    });
+    return el;
   }
 
-  // 기본 카운트/렌더
-  document.getElementById("count").innerText = "총 " + allItems.length + "개";
-  applyAndRender();
+  chips.appendChild(makeChip("전체", "__ALL__", allItems.length));
+
+  const cats = Object.keys(categoryStats).sort((a,b)=>{
+    const da = categoryStats[a] || 0;
+    const db = categoryStats[b] || 0;
+    if(db !== da) return db - da;
+    return a.localeCompare(b, "ko");
+  });
+
+  for(const c of cats){
+    chips.appendChild(makeChip(c, c, categoryStats[c]));
+  }
+}
+
+/* ===== 초기화 ===== */
+(function init(){
+  const $count = document.getElementById("count");
+  const $note = document.getElementById("sourceNote");
 
   document.getElementById("search").addEventListener("input", applyAndRender);
   document.getElementById("sort").addEventListener("change", applyAndRender);
+
+  const catSel = document.getElementById("category");
+  catSel.addEventListener("change", (e)=>{
+    currentCategory = e.target.value;
+    applyAndRender();
+    fillChips();
+  });
+
+  (async function(){
+    try{
+      allItems = await loadFromProductsJson();
+      $note.innerHTML = "데이터: <b>products.json</b>";
+    }catch(e1){
+      try{
+        allItems = await loadFromGithubApi();
+        $note.innerHTML = "데이터: <b>GitHub API</b> (fallback) — products.json을 추가하면 제품명/규격/카테고리 표시 가능";
+      }catch(e2){
+        $count.innerText = "목록 불러오기 실패";
+        $note.innerText = "";
+        console.error(e1, e2);
+        return;
+      }
+    }
+
+    buildCategoryStats();
+    fillCategorySelect();
+    fillChips();
+
+    $count.innerText = "총 " + allItems.length + "개";
+    applyAndRender();
+  })();
 })();
 
-/* =========================
-   검색/정렬/렌더
-========================= */
-
+/* ===== 검색/정렬/렌더 ===== */
 function applyAndRender(){
   const q = (document.getElementById("search").value || "").toLowerCase().trim();
   const sortMode = document.getElementById("sort").value;
 
   let list = allItems.slice();
 
-  // 검색: code / file / title
+  // 카테고리 필터
+  if(currentCategory && currentCategory !== "__ALL__"){
+    list = list.filter(it => (it._cat || inferCategory(it)) === currentCategory);
+  }
+
+  // 검색: 코드 / 파일명 / 제품명(name) / 규격(spec) / title
   if(q){
-    list = list.filter(it => {
-      const codeStr = String(it.code || "");
-      const fileStr = String(it.file || "").toLowerCase();
-      const titleStr = String(it.title || "").toLowerCase();
-      return codeStr.includes(q) || fileStr.includes(q) || titleStr.includes(q);
+    list = list.filter(it=>{
+      return String(it.code || "").includes(q)
+        || String(it.file || "").toLowerCase().includes(q)
+        || String(it.name || "").toLowerCase().includes(q)
+        || String(it.spec || "").toLowerCase().includes(q)
+        || String(it.title || "").toLowerCase().includes(q)
+        || String(it._cat || "").toLowerCase().includes(q);
     });
   }
 
   // 정렬
   if(sortMode === "latest"){
-    // 코드 내림차순
     list.sort((a,b)=> (b.code||0) - (a.code||0));
   } else if(sortMode === "az"){
     list.sort((a,b)=> displayNameFromItem(a).localeCompare(displayNameFromItem(b), "ko"));
@@ -227,29 +387,39 @@ function render(list){
   const box = document.getElementById("list");
   box.innerHTML = "";
 
-  list.forEach(it=>{
+  for(const it of list){
+    const label = displayNameFromItem(it);
+    const spec = (it.spec || "").trim();
     const code = it.code;
-    const file = it.file; // 반드시 "3436976.html"
-    const title = displayNameFromItem(it);
+    const file = it.file;
+    const cat = it._cat || inferCategory(it);
 
     const div = document.createElement("div");
     div.className = "item";
 
-    // 링크는 코드파일만 사용: BASE + file (인코딩 불필요)
-    div.innerHTML = `
-      <a href="${BASE + file}" target="_blank" rel="noopener">
-        ${escapeHtml(title)}
-      </a>
-      <div class="meta">
-        <span class="badge">코드 ${escapeHtml(code)}</span>
-        <span>${escapeHtml(file)}</span>
-      </div>
-    `;
-    box.appendChild(div);
-  });
+    const specHtml = spec
+      ? '<div class="specBox"><div class="specTitle">규격</div>' + escapeHtml(spec) + '</div>'
+      : '<div class="specBox empty"><div class="specTitle">규격</div>공란 (products.json에 spec 입력하면 표시됩니다)</div>';
 
+    div.innerHTML =
+      '<div class="row">' +
+        '<div>' +
+          '<a href="' + (BASE + file) + '" target="_blank" rel="noopener">' + escapeHtml(label) + '</a>' +
+          '<div class="meta">' +
+            '<span class="badge">코드 ' + escapeHtml(code) + '</span>' +
+            '<span class="catTag">' + escapeHtml(cat) + '</span>' +
+            '<span>' + escapeHtml(file) + '</span>' +
+          '</div>' +
+        '</div>' +
+        '<div>' + specHtml + '</div>' +
+      '</div>';
+
+    box.appendChild(div);
+  }
+
+  const catLabel = (currentCategory && currentCategory !== "__ALL__") ? currentCategory : "전체";
   document.getElementById("count").innerText =
-    "표시 " + list.length + "개 / 총 " + allItems.length + "개";
+    catLabel + " · 표시 " + list.length + "개 / 총 " + allItems.length + "개";
 }
 </script>
 
